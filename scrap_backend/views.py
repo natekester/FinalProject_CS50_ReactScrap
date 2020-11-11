@@ -66,8 +66,8 @@ def validate_refresh_token(encoded_token, primary_key):
         decoded_key = jwt.decode(encoded_token, encoding_key, algorithms=['HS256'])
 
     except jwt.ExpiredSignatureError:
-
-        return JsonResponse({'error ': 'expired refresh token'}, status=403)
+        print('the submitted token is expired')
+        return False
     except:
         print('invalid signature!!')
         return False
@@ -103,29 +103,41 @@ def create_token( user_name):
     #TODO add an expiration date into the encode func above {'exp': (datetime.utcnow() + datetime.timedelta(days = 1))},
     return encoded_token
 
-def validate_token(encoded_token, user_name):
-    comparison_message ={'name': str(user_name)} 
+def validate_token(encoded_token):
     
     try:
-        
         decoded_key = jwt.decode(encoded_token, encoding_key, algorithms=['HS256'])
     except jwt.ExpiredSignatureError:
-        return JsonResponse({'error ': 'expired key'}, status=403)
+
+        print('the submitted token is expired')
+        return False
     except:
-        print('invalid signature mother fucker!!')
+        print('invalid signature!!')
         return False
     
-    decoded_name = decoded_key['name']
-    comparison_name = comparison_message['name']
-    print( f' decoded name: {decoded_name} ,  and comparison_message: {comparison_name}')
+    return True
 
+
+def paginationJson(posts, curr_page):
+            
+    pages = Paginator(posts, pag_num)
+    page = pages.get_page(curr_page)
     
+    data = {}
+    position = 1
     
-    if decoded_key['name'] == comparison_message['name']:
-        return True #i.e. if the message is right return it's validated
-    else:
-        print('message is wrong for username')
-        return False  
+    data[0] = [page.has_next(), page.has_previous(), user_page.username, following, followed, None]
+    for item in page:
+
+        data[f'{position}'] = [item.user.username, item.text, item.total_likes, item.time.strftime("%m/%d/%Y, %H:%M:%S"), item.user.id, False, item.id]
+        position = position + 1
+
+    print(data['1'][0])
+    data[0][2] = data['1'][0]
+    
+    return data
+
+
 
 
 
@@ -136,23 +148,106 @@ def validate_token(encoded_token, user_name):
 
 
 
+
+
+
 def open_scrap(request):
     #TODO: make this functional and return pagination data.
     if request.method == "GET":
-        post = Post.objects.get(id=id)
-        return JsonResponse({'text': f'{post.text}'})
+        bearer = request.headers["Authorization"]
+        bearer = bearer[9:]
+        bearer = bearer[ :-1]
+        print( f'our recieved token was {bearer}')
+
+        body_unicode = request.body.decode('utf-8')
+        body = json.loads(body_unicode)
+        username = body['username']
+        print(f'username: {username}')
+
+
+        valid = validate_token(bearer)
+        print(f'valid: {valid}')
+        return JsonResponse({'scrap': 'scrap created'})
+
+
 
 def closed_scrap(request):
     #TODO: make this functional and return pagination data.
     if request.method == "GET":
-        post = Post.objects.get(id=id)
-        return JsonResponse({'text': f'{post.text}'})
-    
+        bearer = request.headers["Authorization"]
+        bearer = bearer[9:]
+        bearer = bearer[ :-1]
+        print( f'our recieved token was {bearer}')
+
+        body_unicode = request.body.decode('utf-8')
+        body = json.loads(body_unicode)
+        username = body['username']
+        print(f'username: {username}')
+
+
+        valid = validate_token(bearer)
+        print(f'valid: {valid}')
+        return JsonResponse({'scrap': 'scrap created'})
+
+
+def create_scrap(request):
+    if request.method == "POST":
+        bearer = request.headers["Authorization"]
+        bearer = bearer[9:]
+        bearer = bearer[ :-1]
+        print( f'our recieved token was {bearer}')
+
+        body_unicode = request.body.decode('utf-8')
+        body = json.loads(body_unicode)
+        username = body['user']
+        cost = body['cost']
+        units = body['units']
+        prod_id = body['prodID']
+        failure = body['failure']
+
+
+        valid = validate_token(bearer)
+        print(f'valid: {valid}')
+        if valid:
+            user = User.objects.get(username=username)
+            prod_id = Product_Id.objects.get(pk=prod_id)
+
+            failure = Failure_Cause.objects.filter(product=prod_id, failure_mode=failure)[0]
+
+            new_scrap = Scrap(prod_id=prod_id, user=user,total_cost=cost,units_scrapped=units,failure=failure)
+            new_scrap.save()
+            #lets change our current cache token to be higher.
+            current_cache = Cache_Token.objects.order_by('id')[0]
+            rend = current_cache.current_rendition
+            rend = int(rend)
+            rend = rend + 1
+            new_c_token = Cache_Token(current_rendition=rend)
+            new_c_token.save()
+
+            return JsonResponse({'scrap': 'scrap created'})
+        else:
+            return JsonResponse({},status=403 )
+
+            
+
 
 def graph_data(request):
-    #TODO: make this functional.
     if request.method == "GET":
-        post = Post.objects.get(id=id)
+        bearer = request.headers["Authorization"]
+        bearer = bearer[9:]
+        bearer = bearer[ :-1]
+        print( f'our recieved token was {bearer}')
+
+        body_unicode = request.body.decode('utf-8')
+        body = json.loads(body_unicode)
+        username = body['username']
+        print(f'username: {username}')
+
+
+        valid = validate_token(bearer)
+        print(f'valid: {valid}')
+
+        #TODO return data for graph.
         return JsonResponse({'text': f'{post.text}'})
     
 
@@ -187,6 +282,11 @@ def get_token(request):
         #check if the user already has a password?
         ref_id = body['refreshTokenID']
         ref_token = body['refreshToken']
+        print(f'Our Ref token is: {ref_token}')
+        ref_token = ref_token[2:]
+        ref_token = ref_token[:-1]
+        print(f'Our Ref token after apend: {ref_token}')
+
         db_ref_token = Refresh_Token.objects.get(id=ref_id)
         user = db_ref_token.user
         
@@ -207,16 +307,11 @@ def get_token(request):
 def check_token(request):
     if request.method == 'POST':
         bearer = request.headers["Authorization"]
-        bearer = bearer[7:]
+        bearer = bearer[9:]
+        bearer = bearer[ :-1]
         print( f'our recieved token was {bearer}')
 
-        body_unicode = request.body.decode('utf-8')
-        body = json.loads(body_unicode)
-        username = body['username']
-        print(f'username: {username}')
-
-
-        valid = validate_token(bearer, username)
+        valid = validate_token(bearer)
         print(f'valid: {valid}')
 
         if valid == True:
@@ -271,9 +366,6 @@ def logout(request):
 
 def check_refresh_token(request):#returns a new short lived token.
     if request.method == 'POST':
-        # bearer = request.headers["Authorization"]
-        # bearer = bearer[7:]
-        # print( f'our recieved token was {bearer}')
 
         print('starting check request')
 
@@ -282,6 +374,8 @@ def check_refresh_token(request):#returns a new short lived token.
         id = body['id']
         print(f'refresh token id: {id}')
         token = body["refresh_token"]
+        token = token[2:]
+        token = token[:-1]
         print(f'Our refresh token is: {token}')
 
 
@@ -299,6 +393,66 @@ def check_refresh_token(request):#returns a new short lived token.
         else:
             return JsonResponse({'error ': 'expired key'}, status=403)
 
+
+def get_failures(request):
+
+    if request.method == "GET":
+        bearer = request.headers["Authorization"]
+        bearer = bearer[9:]
+        bearer = bearer[ :-1]
+        print( f'our recieved token was {bearer}')
+
+        id = request.GET.get('id', None)
+        print(f'our id was: {id}')
+
+        valid = validate_token(bearer)
+        print(f'valid: {valid}')
+        if valid:
+            data = {}
+            prod = Product_Id.objects.get(pk=id)
+            failures = Failure_Cause.objects.filter(product=prod)            
+            count = 0
+            data[f'{count}'] =['']#so the selector has an empty spot to start
+            count = 1
+            for item in failures:
+                data[f'{count}'] = [item.failure_mode]
+                count = count + 1
+
+            return JsonResponse(data)
+        else:
+            return JsonResponse({}, status=403)
+
+
+
+    
+    return JsonResponse()
+
+
+def get_products(request):
+    if request.method == "GET":
+        bearer = request.headers["Authorization"]
+        print( f'our recieved token was {bearer}')
+        bearer = bearer[9:]
+        bearer = bearer[ :-1]
+        print( f'our reduc token was {bearer}')
+
+
+
+        valid = validate_token(bearer)
+        print(f'valid: {valid}')
+        if valid:
+            data = {}
+            prod = Product_Id.objects.all()
+            count = 0
+            data[f'{count}'] =['', '', '','', '' ]#so the selector has an empty spot to start
+            count = 1
+            for item in prod:
+                data[f'{count}'] = [item.prod_id, item.description, item.unit_cost, item.unit, item.id]
+                count = count + 1
+
+            return JsonResponse(data)
+        else:
+            return JsonResponse({}, status=403)
 
 
 

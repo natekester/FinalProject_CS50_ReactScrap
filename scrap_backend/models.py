@@ -45,6 +45,7 @@ class Scrap(models.Model):
     units_scrapped = models.IntegerField()
     prod_id = models.ForeignKey(Product_Id, on_delete=models.CASCADE)
     failure = models.ForeignKey(Failure_Cause, on_delete=models.CASCADE, related_name='failure')
+    is_open = models.BooleanField(default=True)
 
 class Cache_Token(models.Model):
     current_rendition = models.CharField(max_length=128)

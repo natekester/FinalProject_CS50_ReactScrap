@@ -27,14 +27,16 @@ urlpatterns = [
     #path('api/token/refresh/', jwt_views.TokenRefreshView.as_view(), name='token_refresh'),
     path('api/open_scrap/', views.open_scrap),
     path('api/closed_scrap/', views.closed_scrap),
+    path('api/create_scrap/', views.create_scrap),
     path('api/graph_data/', views.graph_data),
     path('api/create_user/', views.create_user, name='create_user'),#should remove and only use super user to create after testing.
     path('api/get_token/', views.get_token),
     path('api/check_token/', views.check_token),
     path('api/login/', views.login), #i.e. get refresh token.
     path('api/logout/', views.logout), #i.e. get refresh token.
+    path('api/check_refresh_token/', views.check_refresh_token),
+    path('api/get_failures/', views.get_failures),
+    path('api/get_products/', views.get_products)
 
-    path('api/check_refresh_token/', views.check_refresh_token)
-    
 
 ]
