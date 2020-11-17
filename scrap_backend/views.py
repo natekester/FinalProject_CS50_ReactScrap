@@ -17,7 +17,8 @@ from .models import User, Refresh_Token, Product_Id, Failure_Cause, Scrap, Cache
 
 #########################
 #Functions and var to be used by api's
-
+#TODO setup way more try/excepts to respond with an appropriate code - currently sending too many 500 - when in reality it's bad credentials. 
+#
 
 pag_num = 10; #amount of pages for paginator
 encoding_key = 'let us chang it to a random key maybe like 30 characters long? Would change for production versionssss'
@@ -118,24 +119,95 @@ def validate_token(encoded_token):
     return True
 
 
-def paginationJson(posts, curr_page):
+def pagination_json( info, curr_page):
             
-    pages = Paginator(posts, pag_num)
+    pages = Paginator( info, pag_num)
     page = pages.get_page(curr_page)
     
     data = {}
     position = 1
+    num_items = len(page)
     
-    data[0] = [page.has_next(), page.has_previous(), user_page.username, following, followed, None]
+    data[0] = [page.has_next(), page.has_previous(), curr_page, num_items]
     for item in page:
 
-        data[f'{position}'] = [item.user.username, item.text, item.total_likes, item.time.strftime("%m/%d/%Y, %H:%M:%S"), item.user.id, False, item.id]
+        data[f'{position}'] = [item.prod_id.prod_id, item.prod_id.description, item.failure.failure_mode, item.is_open, item.lot_id, item.user.username, item.total_cost, item.time.strftime("%m/%d/%Y, %H:%M:%S"), item.units_scrapped , position-1]
         position = position + 1
 
     print(data['1'][0])
     data[0][2] = data['1'][0]
     
     return data
+
+def get_graph_data():
+    #TODO make this dynamic. It's so icky.
+    #there is likely a way more efficient method than this.
+    #could also make more client side.
+    data = {}
+    failure = Failure_Cause.objects.all()
+    prod = Product_Id.objects.all()
+    prod_pos = 0
+    products = []
+
+    labels = []
+        
+
+
+
+
+    for product in prod:
+        #should be only 3 or so.
+
+        # we can move through the primary keys of failures,and then fill in the data positions
+        data[prod_pos] = [0,0,0,0,0,0,0,0]
+        products.append(product.description)
+
+        
+
+        for x in range(0,9):
+            failure = Failure_Cause.objects.get(pk=(x+1))
+
+            #so lets get each failure mode - query scrap associated with it, make that a bar with the title of that section as the failmode.
+            scrap = Scrap.objects.filter(failure=failure, prod_id = product)
+            scrap_cost = 0
+            for item in scrap:
+                scrap_cost = item.total_cost + scrap_cost
+
+            if x == 4: #overlap of failure modes should create new table, but on a timeline
+                data[prod_pos][2] = scrap_cost + data[prod_pos][2]
+            elif x == 6:
+                data[prod_pos][3] = scrap_cost + data[prod_pos][3]
+            elif x==5:
+                data[prod_pos][4] = scrap_cost + data[prod_pos][4]
+            elif x==7:
+                data[prod_pos][5] = scrap_cost + data[prod_pos][5]
+            elif x==8:
+                data[prod_pos][6] = scrap_cost + data[prod_pos][6]
+            else:
+                data[prod_pos][x] = scrap_cost
+
+            if prod_pos == 0:
+                if x != 4 and x != 6: #overlap of failure modes should create new table, but on a timeline
+                    print(f'our x is: {x}')
+                    print(f'our failure mode is: {failure.failure_mode}')
+                    labels.append(failure.failure_mode)
+                    
+
+
+
+            
+
+        prod_pos = prod_pos + 1
+    
+    print(f'our labels are: {labels}')
+
+        
+
+    
+    return [ data, products, labels ]
+
+
+
 
 
 
@@ -152,42 +224,52 @@ def paginationJson(posts, curr_page):
 
 
 def open_scrap(request):
-    #TODO: make this functional and return pagination data.
     if request.method == "GET":
         bearer = request.headers["Authorization"]
         bearer = bearer[9:]
         bearer = bearer[ :-1]
         print( f'our recieved token was {bearer}')
-
-        body_unicode = request.body.decode('utf-8')
-        body = json.loads(body_unicode)
-        username = body['username']
-        print(f'username: {username}')
+        page= request.GET.get('page', None)
 
 
         valid = validate_token(bearer)
-        print(f'valid: {valid}')
-        return JsonResponse({'scrap': 'scrap created'})
 
+        if valid:
+            info = Scrap.objects.filter( is_open=True)
+
+            print(f'valid: {valid}')
+
+            data = pagination_json(info, page)
+
+        
+            return JsonResponse(data, safe = False)
+        else:
+            return JsonResponse({},status=403 )
 
 
 def closed_scrap(request):
-    #TODO: make this functional and return pagination data.
     if request.method == "GET":
         bearer = request.headers["Authorization"]
         bearer = bearer[9:]
         bearer = bearer[ :-1]
         print( f'our recieved token was {bearer}')
-
-        body_unicode = request.body.decode('utf-8')
-        body = json.loads(body_unicode)
-        username = body['username']
-        print(f'username: {username}')
+        page= request.GET.get('page', None)
 
 
         valid = validate_token(bearer)
-        print(f'valid: {valid}')
-        return JsonResponse({'scrap': 'scrap created'})
+
+        if valid:
+            info = Scrap.objects.filter( is_open=False)
+
+            print(f'valid: {valid}')
+
+            data = pagination_json(info, page)
+
+        
+            return JsonResponse(data, safe = False)
+        else:
+            return JsonResponse({},status=403 )
+
 
 
 def create_scrap(request):
@@ -204,6 +286,7 @@ def create_scrap(request):
         units = body['units']
         prod_id = body['prodID']
         failure = body['failure']
+        lot_id = body['lotID']
 
 
         valid = validate_token(bearer)
@@ -214,7 +297,7 @@ def create_scrap(request):
 
             failure = Failure_Cause.objects.filter(product=prod_id, failure_mode=failure)[0]
 
-            new_scrap = Scrap(prod_id=prod_id, user=user,total_cost=cost,units_scrapped=units,failure=failure)
+            new_scrap = Scrap(prod_id=prod_id,lot_id=lot_id, user=user,total_cost=cost,units_scrapped=units,failure=failure)
             new_scrap.save()
             #lets change our current cache token to be higher.
             current_cache = Cache_Token.objects.order_by('id')[0]
@@ -237,18 +320,17 @@ def graph_data(request):
         bearer = bearer[9:]
         bearer = bearer[ :-1]
         print( f'our recieved token was {bearer}')
-
-        body_unicode = request.body.decode('utf-8')
-        body = json.loads(body_unicode)
-        username = body['username']
-        print(f'username: {username}')
+        page= request.GET.get('page', None)
 
 
         valid = validate_token(bearer)
-        print(f'valid: {valid}')
 
-        #TODO return data for graph.
-        return JsonResponse({'text': f'{post.text}'})
+        if valid:
+            data = get_graph_data()
+        
+            return JsonResponse(data, safe = False)
+        else:
+            return JsonResponse({},status=403 )
     
 
 def create_user(request):

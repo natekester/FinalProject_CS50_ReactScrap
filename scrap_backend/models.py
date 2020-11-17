@@ -46,6 +46,7 @@ class Scrap(models.Model):
     prod_id = models.ForeignKey(Product_Id, on_delete=models.CASCADE)
     failure = models.ForeignKey(Failure_Cause, on_delete=models.CASCADE, related_name='failure')
     is_open = models.BooleanField(default=True)
+    lot_id = models.CharField(default="p00000", max_length=32)
 
 class Cache_Token(models.Model):
     current_rendition = models.CharField(max_length=128)
@@ -54,6 +55,8 @@ class Refresh_Token(models.Model):
     token = models.CharField(max_length=128)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     time_created = models.DateTimeField(default = timezone.now)
+
+# Might be good to have a table tracking closure and comments.
 
 
 
