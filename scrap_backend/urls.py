@@ -29,6 +29,8 @@ urlpatterns = [
     path('api/closed_scrap/', views.closed_scrap),
     path('api/create_scrap/', views.create_scrap),
     path('api/graph_data/', views.graph_data),
+    path('api/open_graph_data/', views.open_graph_data),
+    path('api/closed_graph_data/', views.closed_graph_data),
     path('api/create_user/', views.create_user, name='create_user'),#should remove and only use super user to create after testing.
     path('api/get_token/', views.get_token),
     path('api/check_token/', views.check_token),
@@ -36,7 +38,8 @@ urlpatterns = [
     path('api/logout/', views.logout), #i.e. get refresh token.
     path('api/check_refresh_token/', views.check_refresh_token),
     path('api/get_failures/', views.get_failures),
-    path('api/get_products/', views.get_products)
+    path('api/get_products/', views.get_products),
+    path('api/close_scrap/', views.close_scrap),
 
 
 ]

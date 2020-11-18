@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 import datetime
 
 from django.contrib.auth.hashers import make_password, check_password
-from .models import User, Refresh_Token, Product_Id, Failure_Cause, Scrap, Cache_Token
+from .models import User, Refresh_Token, Product_Id, Failure_Cause, Scrap, Cache_Token, ClosedScrapComments
 
 
 #########################
@@ -131,7 +131,7 @@ def pagination_json( info, curr_page):
     data[0] = [page.has_next(), page.has_previous(), curr_page, num_items]
     for item in page:
 
-        data[f'{position}'] = [item.prod_id.prod_id, item.prod_id.description, item.failure.failure_mode, item.is_open, item.lot_id, item.user.username, item.total_cost, item.time.strftime("%m/%d/%Y, %H:%M:%S"), item.units_scrapped , position-1]
+        data[f'{position}'] = [item.prod_id.prod_id, item.prod_id.description, item.failure.failure_mode, item.is_open, item.lot_id, item.user.username, item.total_cost, item.time.strftime("%m/%d/%Y, %H:%M:%S"), item.units_scrapped, item.id, position-1]
         position = position + 1
 
     print(data['1'][0])
@@ -171,6 +171,144 @@ def get_graph_data():
             scrap = Scrap.objects.filter(failure=failure, prod_id = product)
             scrap_cost = 0
             for item in scrap:
+                scrap_cost = item.total_cost + scrap_cost
+
+            if x == 4: #overlap of failure modes should create new table, but on a timeline
+                data[prod_pos][2] = scrap_cost + data[prod_pos][2]
+            elif x == 6:
+                data[prod_pos][3] = scrap_cost + data[prod_pos][3]
+            elif x==5:
+                data[prod_pos][4] = scrap_cost + data[prod_pos][4]
+            elif x==7:
+                data[prod_pos][5] = scrap_cost + data[prod_pos][5]
+            elif x==8:
+                data[prod_pos][6] = scrap_cost + data[prod_pos][6]
+            else:
+                data[prod_pos][x] = scrap_cost
+
+            if prod_pos == 0:
+                if x != 4 and x != 6: #overlap of failure modes should create new table, but on a timeline
+                    print(f'our x is: {x}')
+                    print(f'our failure mode is: {failure.failure_mode}')
+                    labels.append(failure.failure_mode)
+                    
+
+
+
+            
+
+        prod_pos = prod_pos + 1
+    
+    print(f'our labels are: {labels}')
+
+        
+
+    
+    return [ data, products, labels ]
+
+
+def get_open_graph_data():
+    #TODO make this dynamic. It's so icky.
+    #there is likely a way more efficient method than this.
+    #could also make more client side.
+    data = {}
+    failure = Failure_Cause.objects.all()
+    prod = Product_Id.objects.all()
+    prod_pos = 0
+    products = []
+
+    labels = []
+        
+
+
+
+
+    for product in prod:
+        #should be only 3 or so.
+
+        # we can move through the primary keys of failures,and then fill in the data positions
+        data[prod_pos] = [0,0,0,0,0,0,0,0]
+        products.append(product.description)
+
+        
+
+        for x in range(0,9):
+            failure = Failure_Cause.objects.get(pk=(x+1))
+
+            #so lets get each failure mode - query scrap associated with it, make that a bar with the title of that section as the failmode.
+            scrap = Scrap.objects.filter(failure=failure, prod_id = product, is_open=True)
+            scrap_cost = 0
+            for item in scrap:
+                scrap_cost = item.total_cost + scrap_cost
+
+            if x == 4: #overlap of failure modes should create new table, but on a timeline
+                data[prod_pos][2] = scrap_cost + data[prod_pos][2]
+            elif x == 6:
+                data[prod_pos][3] = scrap_cost + data[prod_pos][3]
+            elif x==5:
+                data[prod_pos][4] = scrap_cost + data[prod_pos][4]
+            elif x==7:
+                data[prod_pos][5] = scrap_cost + data[prod_pos][5]
+            elif x==8:
+                data[prod_pos][6] = scrap_cost + data[prod_pos][6]
+            else:
+                data[prod_pos][x] = scrap_cost
+
+            if prod_pos == 0:
+                if x != 4 and x != 6: #overlap of failure modes should create new table, but on a timeline
+                    print(f'our x is: {x}')
+                    print(f'our failure mode is: {failure.failure_mode}')
+                    labels.append(failure.failure_mode)
+                    
+
+
+
+            
+
+        prod_pos = prod_pos + 1
+    
+    print(f'our labels are: {labels}')
+
+        
+
+    
+    return [ data, products, labels ]
+
+
+def get_closed_graph_data():
+    #TODO make this dynamic. It's so icky.
+    #there is likely a way more efficient method than this.
+    #could also make more client side.
+    data = {}
+    failure = Failure_Cause.objects.all()
+    prod = Product_Id.objects.all()
+    prod_pos = 0
+    products = []
+
+    labels = []
+        
+
+
+
+
+    for product in prod:
+        #should be only 3 or so.
+
+        # we can move through the primary keys of failures,and then fill in the data positions
+        data[prod_pos] = [0,0,0,0,0,0,0,0]
+        products.append(product.description)
+
+        
+
+        for x in range(0,9):
+            failure = Failure_Cause.objects.get(pk=(x+1))
+
+            #so lets get each failure mode - query scrap associated with it, make that a bar with the title of that section as the failmode.
+            scrap = Scrap.objects.filter(failure=failure, prod_id = product, is_open=False)
+            scrap_cost = 0
+            for item in scrap:
+                print(f'our scrap isopen should only be false: {item.is_open}')
+
                 scrap_cost = item.total_cost + scrap_cost
 
             if x == 4: #overlap of failure modes should create new table, but on a timeline
@@ -324,9 +462,49 @@ def graph_data(request):
 
 
         valid = validate_token(bearer)
+        print('about to send data for all scraps')
 
         if valid:
             data = get_graph_data()
+        
+            return JsonResponse(data, safe = False)
+        else:
+            return JsonResponse({},status=403 )
+
+
+def open_graph_data(request):
+    if request.method == "GET":
+        bearer = request.headers["Authorization"]
+        bearer = bearer[9:]
+        bearer = bearer[ :-1]
+        print( f'our recieved token was {bearer}')
+        
+        page= request.GET.get('page', None)
+
+
+        valid = validate_token(bearer)
+
+        if valid:
+            data = get_open_graph_data()
+        
+            return JsonResponse(data, safe = False)
+        else:
+            return JsonResponse({},status=403 )
+
+
+def closed_graph_data(request):
+    if request.method == "GET":
+        bearer = request.headers["Authorization"]
+        bearer = bearer[9:]
+        bearer = bearer[ :-1]
+        print( f'our recieved token was {bearer}')
+        page= request.GET.get('page', None)
+
+
+        valid = validate_token(bearer)
+
+        if valid:
+            data = get_closed_graph_data()
         
             return JsonResponse(data, safe = False)
         else:
@@ -533,6 +711,36 @@ def get_products(request):
                 count = count + 1
 
             return JsonResponse(data)
+        else:
+            return JsonResponse({}, status=403)
+
+
+
+def close_scrap(request):
+    if request.method == "POST":
+        bearer = request.headers["Authorization"]
+        print( f'our recieved token was {bearer}')
+        bearer = bearer[9:]
+        bearer = bearer[ :-1]
+
+        body_unicode = request.body.decode('utf-8')
+        body = json.loads(body_unicode)
+        print( f'our reduc token was {bearer}')
+
+        valid = validate_token(bearer)
+        print(f'valid: {valid}')
+        if valid:
+            scrap_pk = body['scrapID']
+        
+        
+            scrap = Scrap.objects.get(id=scrap_pk)
+            scrap.is_open = False
+            scrap.save()
+
+            comment = body['comment']
+            com = ClosedScrapComments(scrap=scrap, comment=comment)
+
+            return JsonResponse({'scrap': 'scrap closed'})
         else:
             return JsonResponse({}, status=403)
 

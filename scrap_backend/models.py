@@ -57,6 +57,9 @@ class Refresh_Token(models.Model):
     time_created = models.DateTimeField(default = timezone.now)
 
 # Might be good to have a table tracking closure and comments.
+class ClosedScrapComments(models.Model):
+    scrap = models.ForeignKey(Scrap, on_delete=models.CASCADE)
+    comment = models.CharField(max_length=128)
 
 
 
