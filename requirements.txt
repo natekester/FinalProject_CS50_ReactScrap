@@ -1,0 +1,8 @@
+jwt is required to run this.
+yarn is used to help build react.
+React is used for the front end.
+npm which is apart of react.
+json to handling the json files.
+Route - is used for the routing in react.
+React-Charts2.js is used for the graphs on the front end.
+bcrypt is used for password hashing.
