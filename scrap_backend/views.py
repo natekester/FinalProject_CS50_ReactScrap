@@ -31,7 +31,6 @@ def create_refresh_token( user_name):
     if(len(user) == 0):
         return JsonResponse({'error': 'cannot get refresh token'}, status=409) #return conflict
         
-    #double check you don't need to iterate
     #need to save encoded token as a hash. - i'll just use bcrypt 
     
 
@@ -513,7 +512,7 @@ def closed_graph_data(request):
 
 def create_user(request):
     if request.method == 'POST':
-        #make sure no user is already in the system with that username.
+        #TODO make sure no user is already in the system with that username.
 
 
         body_unicode = request.body.decode('utf-8')
