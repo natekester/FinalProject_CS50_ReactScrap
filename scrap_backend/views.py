@@ -16,7 +16,8 @@ from .models import User, RefreshToken, ProductId, FailureCause, Scrap, CacheTok
 
 
 #########################
-#Functions and var to be used by api's
+#Functions and var to be used by api's 
+#TODO clean these functions up and make it a seperate file - more explicit
 #TODO setup way more try/excepts to respond with an appropriate code - currently sending too many 500 - when in reality it's bad credentials. 
 
 pag_num = 10; #amount of pages for paginator
@@ -58,10 +59,10 @@ def create_refresh_token( user_name):
 
 
 def validate_refresh_token(encoded_token, primary_key):
-    
+    #check that the refresh token is valid or not
     
     try:
-        
+        #decoding in order to check signature and exp date
         decoded_key = jwt.decode(encoded_token, encoding_key, algorithms=['HS256'])
 
     except jwt.ExpiredSignatureError:
@@ -93,17 +94,17 @@ def validate_refresh_token(encoded_token, primary_key):
 
 
 def create_token( user_name):
+    #creates a short lived token that is alive for 30 or so seconds
     payload = {
             "name": str(user_name),
             "exp": datetime.datetime.utcnow() + datetime.timedelta(seconds=30)
         }
     encoded_token = jwt.encode(payload,  encoding_key, algorithm='HS256') 
 
-    #TODO add an expiration date into the encode func above {'exp': (datetime.utcnow() + datetime.timedelta(days = 1))},
     return encoded_token
 
 def validate_token(encoded_token):
-    
+    #check that the short lived token is valid
     try:
         decoded_key = jwt.decode(encoded_token, encoding_key, algorithms=['HS256'])
     except jwt.ExpiredSignatureError:
@@ -138,7 +139,8 @@ def pagination_json( info, curr_page):
     return data
 
 def get_graph_data():
-    #TODO make this dynamic. It's so icky.
+    #returns graph data of all scrap in the system.
+    #TODO make this dynamic. It's hard coded and a mess.
     #there is likely a way more efficient method than this.
     #could also make more client side.
     data = {}
@@ -206,7 +208,8 @@ def get_graph_data():
 
 
 def get_open_graph_data():
-    #TODO make this dynamic. It's so icky.
+    #returns graph data filtered by open scrap data.
+    #TODO make this dynamic. It's hard coded and a mess.
     #there is likely a way more efficient method than this.
     #could also make more client side if we wanted to take backend load off.
     data = {}
@@ -274,7 +277,8 @@ def get_open_graph_data():
 
 
 def get_closed_graph_data():
-    #TODO make this dynamic. It's so icky.
+    #returns graph data filtered by closed data.
+    #TODO make this dynamic.  It's hard coded and a mess.
     #there is likely a way more efficient method than this.
     #could also make more client side.
     data = {}
@@ -362,6 +366,7 @@ def get_closed_graph_data():
 def open_scrap(request):
     if request.method == "GET":
         bearer = request.headers["Authorization"]
+        #token has initial message and ' at end that needs to be removed
         bearer = bearer[9:]
         bearer = bearer[ :-1]
         print( f'our recieved token was {bearer}')
@@ -386,6 +391,7 @@ def open_scrap(request):
 def closed_scrap(request):
     if request.method == "GET":
         bearer = request.headers["Authorization"]
+        #token has initial message and ' at end that needs to be removed       
         bearer = bearer[9:]
         bearer = bearer[ :-1]
         print( f'our recieved token was {bearer}')
@@ -411,6 +417,7 @@ def closed_scrap(request):
 def create_scrap(request):
     if request.method == "POST":
         bearer = request.headers["Authorization"]
+        #token has initial message and ' at end that needs to be removed
         bearer = bearer[9:]
         bearer = bearer[ :-1]
         print( f'our recieved token was {bearer}')
@@ -453,6 +460,7 @@ def create_scrap(request):
 def graph_data(request):
     if request.method == "GET":
         bearer = request.headers["Authorization"]
+        #token has initial message and ' at end that needs to be removed
         bearer = bearer[9:]
         bearer = bearer[ :-1]
         print( f'our recieved token was {bearer}')
@@ -473,6 +481,7 @@ def graph_data(request):
 def open_graph_data(request):
     if request.method == "GET":
         bearer = request.headers["Authorization"]
+        #token has initial message and ' at end that needs to be removed
         bearer = bearer[9:]
         bearer = bearer[ :-1]
         print( f'our recieved token was {bearer}')
@@ -493,6 +502,7 @@ def open_graph_data(request):
 def closed_graph_data(request):
     if request.method == "GET":
         bearer = request.headers["Authorization"]
+        #token has initial message and ' at end that needs to be removed
         bearer = bearer[9:]
         bearer = bearer[ :-1]
         print( f'our recieved token was {bearer}')
@@ -508,11 +518,9 @@ def closed_graph_data(request):
         else:
             return JsonResponse({},status=403 )
     
-
+#TODO remove this in production or risk users being ceated through this - leave to Django admin - restricted access to super users
 def create_user(request):
     if request.method == 'POST':
-        #TODO make sure no user is already in the system with that username.
-
 
         body_unicode = request.body.decode('utf-8')
         body = json.loads(body_unicode)
@@ -533,7 +541,7 @@ def create_user(request):
 
 
 def get_token(request):
-    #lets set it up to return a token if refresh token is correct
+    #return a short lived token if refresh token is correct
     if request.method == 'POST':
         body_unicode = request.body.decode('utf-8')
         body = json.loads(body_unicode)
@@ -545,26 +553,33 @@ def get_token(request):
         ref_token = ref_token[:-1]
         print(f'Our Ref token after apend: {ref_token}')
 
+
+        #using the ref token ID sent in message - validate to database token
         db_ref_token = RefreshToken.objects.get(id=ref_id)
         user = db_ref_token.user
         
 
 
         if(user != None and db_ref_token != None):
+            #check that the username and ref token match up to the hashed refresh token and user in the system
             same_password = check_password(encoded=db_ref_token.token, password=ref_token)
         else:
             same_password = False
 
         if same_password == True:
+            #the username and refresh token match the system - return a new short lived token
             token = create_token(user.username)
             print(f'our created and sent token was: {token}')
             return JsonResponse({'token': f'{token}'})
         else:
+            #the user and refresh token were not correct or expired. Return error status
             return JsonResponse({'error': 'creditials incorrect'}, status=403)
         
 def check_token(request):
+    #validate the short lived token the client has
     if request.method == 'POST':
         bearer = request.headers["Authorization"]
+        #bearer has excess char
         bearer = bearer[9:]
         bearer = bearer[ :-1]
         print( f'our recieved token was {bearer}')
@@ -577,11 +592,12 @@ def check_token(request):
         elif valid == False:
             return JsonResponse({'error': 'token invalid'}, status=403)
         else:
+            #TODO figure out a better status for expired key
             return JsonResponse({'error': 'expired key'}, status=403)
 
 
 def login(request):
-    #i.e. get refresh token and original token.
+    #create and get refresh token and short lived token after providing credentials
     if request.method == 'POST':
         body_unicode = request.body.decode('utf-8')
         body = json.loads(body_unicode)
@@ -605,7 +621,7 @@ def login(request):
 
 
 def logout(request):
-    #i.e. get refresh token and original token.
+    #remove refresh token stored associated with the user
     if request.method == 'POST':
         body_unicode = request.body.decode('utf-8')
         body = json.loads(body_unicode)
@@ -622,7 +638,9 @@ def logout(request):
 
         
 
-def check_refresh_token(request):#returns a new short lived token.
+def check_refresh_token(request):
+    #returns true if valid and error if invalid
+    #returns a new short lived token.
     if request.method == 'POST':
 
         print('starting check request')
@@ -640,12 +658,8 @@ def check_refresh_token(request):#returns a new short lived token.
         valid = validate_refresh_token(token, id)
         print(f'valid: {valid}')
         
-
-        #if the token is validated - we need to return a new token
-        token = create_token(id)
-
         if valid == True:
-            return JsonResponse({'token': f'{token}' })
+            return JsonResponse({'token': 'true' })
         elif valid == False:
             return JsonResponse({'error ': 'token invalid'}, status=403)
         else:
@@ -653,7 +667,7 @@ def check_refresh_token(request):#returns a new short lived token.
 
 
 def get_failures(request):
-
+    #retun failure modes associated with a product
     if request.method == "GET":
         bearer = request.headers["Authorization"]
         bearer = bearer[9:]
@@ -681,12 +695,8 @@ def get_failures(request):
             return JsonResponse({}, status=403)
 
 
-
-    
-    return JsonResponse()
-
-
 def get_products(request):
+    #get all products in system and their attributes
     if request.method == "GET":
         bearer = request.headers["Authorization"]
         print( f'our recieved token was {bearer}')
@@ -715,6 +725,8 @@ def get_products(request):
 
 
 def close_scrap(request):
+    #change status of scrap from open to closed
+    #TODO update db to handle closing comments
     if request.method == "POST":
         bearer = request.headers["Authorization"]
         print( f'our recieved token was {bearer}')
