@@ -12,13 +12,12 @@ from rest_framework.permissions import IsAuthenticated
 import datetime
 
 from django.contrib.auth.hashers import make_password, check_password
-from .models import User, Refresh_Token, Product_Id, Failure_Cause, Scrap, Cache_Token, ClosedScrapComments
+from .models import User, RefreshToken, ProductId, FailureCause, Scrap, CacheToken, ClosedScrapComments
 
 
 #########################
 #Functions and var to be used by api's
 #TODO setup way more try/excepts to respond with an appropriate code - currently sending too many 500 - when in reality it's bad credentials. 
-#
 
 pag_num = 10; #amount of pages for paginator
 encoding_key = 'let us chang it to a random key maybe like 30 characters long? Would change for production versionssss'
@@ -51,7 +50,7 @@ def create_refresh_token( user_name):
 
     hashed_token = make_password(post_conv)
 
-    refr = Refresh_Token(token=hashed_token, user=user[0])
+    refr = RefreshToken(token=hashed_token, user=user[0])
     refr.save()
     id = refr.id
 
@@ -76,7 +75,7 @@ def validate_refresh_token(encoded_token, primary_key):
     #also check that it's not expired
     print('validating refresh token')
 
-    ref = Refresh_Token.objects.get(pk=primary_key)
+    ref = RefreshToken.objects.get(pk=primary_key)
     print(ref)
     print(ref.token)
     print(f'our saved refresh token belonged to: {ref.user.username}')
@@ -143,8 +142,8 @@ def get_graph_data():
     #there is likely a way more efficient method than this.
     #could also make more client side.
     data = {}
-    failure = Failure_Cause.objects.all()
-    prod = Product_Id.objects.all()
+    failure = FailureCause.objects.all()
+    prod = ProductId.objects.all()
     prod_pos = 0
     products = []
 
@@ -164,7 +163,7 @@ def get_graph_data():
         
 
         for x in range(0,9):
-            failure = Failure_Cause.objects.get(pk=(x+1))
+            failure = FailureCause.objects.get(pk=(x+1))
 
             #so lets get each failure mode - query scrap associated with it, make that a bar with the title of that section as the failmode.
             scrap = Scrap.objects.filter(failure=failure, prod_id = product)
@@ -209,10 +208,10 @@ def get_graph_data():
 def get_open_graph_data():
     #TODO make this dynamic. It's so icky.
     #there is likely a way more efficient method than this.
-    #could also make more client side.
+    #could also make more client side if we wanted to take backend load off.
     data = {}
-    failure = Failure_Cause.objects.all()
-    prod = Product_Id.objects.all()
+    failure = FailureCause.objects.all()
+    prod = ProductId.objects.all()
     prod_pos = 0
     products = []
 
@@ -232,7 +231,7 @@ def get_open_graph_data():
         
 
         for x in range(0,9):
-            failure = Failure_Cause.objects.get(pk=(x+1))
+            failure = FailureCause.objects.get(pk=(x+1))
 
             #so lets get each failure mode - query scrap associated with it, make that a bar with the title of that section as the failmode.
             scrap = Scrap.objects.filter(failure=failure, prod_id = product, is_open=True)
@@ -279,8 +278,8 @@ def get_closed_graph_data():
     #there is likely a way more efficient method than this.
     #could also make more client side.
     data = {}
-    failure = Failure_Cause.objects.all()
-    prod = Product_Id.objects.all()
+    failure = FailureCause.objects.all()
+    prod = ProductId.objects.all()
     prod_pos = 0
     products = []
 
@@ -300,7 +299,7 @@ def get_closed_graph_data():
         
 
         for x in range(0,9):
-            failure = Failure_Cause.objects.get(pk=(x+1))
+            failure = FailureCause.objects.get(pk=(x+1))
 
             #so lets get each failure mode - query scrap associated with it, make that a bar with the title of that section as the failmode.
             scrap = Scrap.objects.filter(failure=failure, prod_id = product, is_open=False)
@@ -430,18 +429,18 @@ def create_scrap(request):
         print(f'valid: {valid}')
         if valid:
             user = User.objects.get(username=username)
-            prod_id = Product_Id.objects.get(pk=prod_id)
+            prod_id = ProductId.objects.get(pk=prod_id)
 
-            failure = Failure_Cause.objects.filter(product=prod_id, failure_mode=failure)[0]
+            failure = FailureCause.objects.filter(product=prod_id, failure_mode=failure)[0]
 
             new_scrap = Scrap(prod_id=prod_id,lot_id=lot_id, user=user,total_cost=cost,units_scrapped=units,failure=failure)
             new_scrap.save()
             #lets change our current cache token to be higher.
-            current_cache = Cache_Token.objects.order_by('id')[0]
+            current_cache = CacheToken.objects.order_by('id')[0]
             rend = current_cache.current_rendition
             rend = int(rend)
             rend = rend + 1
-            new_c_token = Cache_Token(current_rendition=rend)
+            new_c_token = CacheToken(current_rendition=rend)
             new_c_token.save()
 
             return JsonResponse({'scrap': 'scrap created'})
@@ -546,7 +545,7 @@ def get_token(request):
         ref_token = ref_token[:-1]
         print(f'Our Ref token after apend: {ref_token}')
 
-        db_ref_token = Refresh_Token.objects.get(id=ref_id)
+        db_ref_token = RefreshToken.objects.get(id=ref_id)
         user = db_ref_token.user
         
 
@@ -614,7 +613,7 @@ def logout(request):
         username = body['username']
         
         user = User.objects.get(username=username)
-        Refresh_Token.objects.filter(user=user).delete()
+        RefreshToken.objects.filter(user=user).delete()
 
         print('removing refresh tokens of logging out user')
 
@@ -668,8 +667,8 @@ def get_failures(request):
         print(f'valid: {valid}')
         if valid:
             data = {}
-            prod = Product_Id.objects.get(pk=id)
-            failures = Failure_Cause.objects.filter(product=prod)            
+            prod = ProductId.objects.get(pk=id)
+            failures = FailureCause.objects.filter(product=prod)            
             count = 0
             data[f'{count}'] =['']#so the selector has an empty spot to start
             count = 1
@@ -701,7 +700,7 @@ def get_products(request):
         print(f'valid: {valid}')
         if valid:
             data = {}
-            prod = Product_Id.objects.all()
+            prod = ProductId.objects.all()
             count = 0
             data[f'{count}'] =['', '', '','', '' ]#so the selector has an empty spot to start
             count = 1

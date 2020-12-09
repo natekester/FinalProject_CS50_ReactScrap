@@ -1,9 +1,9 @@
 from django.contrib import admin
-from .models import User, Refresh_Token, Product_Id, Failure_Cause, Scrap, Cache_Token
+from .models import User, RefreshToken, ProductId, FailureCause, Scrap, CacheToken
 # Register your models here.
 admin.site.register(User)
-admin.site.register(Refresh_Token)
-admin.site.register(Failure_Cause)
+admin.site.register(RefreshToken)
+admin.site.register(FailureCause)
 admin.site.register(Scrap)
-admin.site.register(Cache_Token)
-admin.site.register(Product_Id)
+admin.site.register(CacheToken)
+admin.site.register(ProductId)

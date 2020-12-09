@@ -25,7 +25,7 @@ class User(models.Model):
     password = models.CharField(max_length=64) #this will be hashed with bycrypt
 
 
-class Product_Id(models.Model):
+class ProductId(models.Model):
     prod_id = models.CharField(max_length=32)
     description = models.CharField(max_length=128)
     unit_cost = models.DecimalField(max_digits=10, decimal_places=2)
@@ -34,8 +34,8 @@ class Product_Id(models.Model):
     updating_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='updating_user')
 
 
-class Failure_Cause(models.Model):
-    product = models.ForeignKey(Product_Id, on_delete=models.CASCADE, related_name='product')
+class FailureCause(models.Model):
+    product = models.ForeignKey(ProductId, on_delete=models.CASCADE, related_name='product')
     failure_mode = models.CharField(max_length=32)
 
 class Scrap(models.Model):
@@ -43,20 +43,21 @@ class Scrap(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='scrap_user')
     total_cost =  models.DecimalField(max_digits=10, decimal_places=2)
     units_scrapped = models.IntegerField()
-    prod_id = models.ForeignKey(Product_Id, on_delete=models.CASCADE)
-    failure = models.ForeignKey(Failure_Cause, on_delete=models.CASCADE, related_name='failure')
+    prod_id = models.ForeignKey(ProductId, on_delete=models.CASCADE)
+    failure = models.ForeignKey(FailureCause, on_delete=models.CASCADE, related_name='failure')
     is_open = models.BooleanField(default=True)
     lot_id = models.CharField(default="p00000", max_length=32)
 
-class Cache_Token(models.Model):
+class CacheToken(models.Model):
     current_rendition = models.CharField(max_length=128)
     
-class Refresh_Token(models.Model):
+class RefreshToken(models.Model):
     token = models.CharField(max_length=128)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     time_created = models.DateTimeField(default = timezone.now)
 
 # Might be good to have a table tracking closure and comments.
+
 class ClosedScrapComments(models.Model):
     scrap = models.ForeignKey(Scrap, on_delete=models.CASCADE)
     comment = models.CharField(max_length=128)
