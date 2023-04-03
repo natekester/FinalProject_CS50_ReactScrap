@@ -1,4 +1,4 @@
-My app keeps track of scrap entered into the system, and then shows graphs analyzing the cost associated with the products and root causes.
+My app keeps track of maunfacturing scrap, and then shows graphs analyzing the cost associated with the products and root causes.
 
 the finalProject folder holds my Settings, parent urls and other management info.
 
